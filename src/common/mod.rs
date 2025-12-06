@@ -29,5 +29,4 @@
 // pub mod restore;
 pub mod info;
 pub mod configuration;
-mod client;
 pub mod security;
