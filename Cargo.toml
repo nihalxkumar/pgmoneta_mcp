@@ -6,11 +6,11 @@ license = "BSD-3-Clause"
 
 [[bin]]
 name = "pgmoneta-mcp-server"
-path = "src/server.rs"
+path = "src/bin/server.rs"
 
 [[bin]]
 name = "pgmoneta-mcp-amdin"
-path = "src/admin.rs"
+path = "src/bin/admin.rs"
 
 [dependencies]
 tokio = {version = "1", features = ["full"] }

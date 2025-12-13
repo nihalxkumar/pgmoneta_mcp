@@ -13,7 +13,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use anyhow::anyhow;
+mod info;
+
 use super::constant::*;
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
@@ -22,20 +23,13 @@ use rmcp::{
         wrapper::Parameters,
     },
     model::*,
-    prompt, prompt_handler, prompt_router, schemars,
+    schemars,
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
 use std::collections::HashMap;
 use serde_json::Value;
 use super::client::PgmonetaClient;
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct InfoRequest {
-    pub username: String,
-    pub server: String,
-    pub backup_id: String,
-}
 
 #[derive(Clone)]
 pub struct PgmonetaHandler {
@@ -58,23 +52,15 @@ impl PgmonetaHandler {
     #[tool(description = "Get information of a backup using given backup ID and server name. \
     \"newest\", \"latest\" or \"oldest\" are also accepted as backup identifier.\
     The username has to be one of the pgmoneta admins to be able to access pgmoneta")]
-    async fn get_backup_info(&self, Parameters(args): Parameters<InfoRequest>) -> Result<CallToolResult, McpError> {
+    async fn get_backup_info(&self, Parameters(args): Parameters<info::InfoRequest>) -> Result<CallToolResult, McpError> {
         self._get_backup_info(args).await
     }
 }
 
 impl PgmonetaHandler {
-    async fn _get_backup_info(&self, request: InfoRequest) -> Result<CallToolResult, McpError> {
-        let result = PgmonetaClient::request_backup_info(&request.username, &request.server, &request.backup_id).await.map_err(|e| {
-            McpError::internal_error(format!("Failed to retrieve backup information: {}", e), None)
-        })?;
-        Self::_check_result(&result)?;
-        Ok(CallToolResult::success(vec![Content::text(result)]))
-    }
-
     fn _check_result(result: &str) -> Result<(), McpError> {
         let response: HashMap<String, Value> = serde_json::from_str(result).map_err(|e| {
-            McpError::parse_error(format!("Failed to parse result {result}"), None)
+            McpError::parse_error(format!("Failed to parse result {result}: {:?}", e), None)
         })?;
         if !response.contains_key(MANAGEMENT_CATEGORY_OUTCOME) {
             return Err(McpError::internal_error(format!("Fail to find outcome inside response {:?}", response), None));

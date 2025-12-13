@@ -25,6 +25,7 @@ use std::fs;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use tokio::net::TcpStream;
 use zeroize::Zeroize;
+use crate::constant::MASTER_KEY_PATH;
 
 const NONCE_LEN: usize = 12;
 const SALT_LEN: usize = 16;
@@ -53,7 +54,7 @@ impl SecurityUtil {
         if home_path.is_none() {
             return Err(anyhow!("Unable to find home path"))
         }
-        let key_path = home_path.unwrap().join(".pgmoneta-mcp/master.key");
+        let key_path = home_path.unwrap().join(MASTER_KEY_PATH);
         let key = fs::read_to_string(key_path)?;
         Ok(self.base64_decode(&key)?)
     }
@@ -119,8 +120,8 @@ impl SecurityUtil {
         Ok(plaintext?)
     }
 
-    pub async fn connect_to_server(host: &str, port: i32, username: &str, password: &str) -> anyhow::Result<(TcpStream)> {
-        /// Connect to pgmoneta server using SCRAM-SHA-256 authentication.
+    /// Connect to pgmoneta server using SCRAM-SHA-256 authentication.
+    pub async fn connect_to_server(host: &str, port: i32, username: &str, password: &str) -> anyhow::Result<TcpStream> {
         let scram = ScramClient::new(username, password, None);
         let address = format!("{}:{}!", host, port);
         let mut stream = TcpStream::connect(address).await?;

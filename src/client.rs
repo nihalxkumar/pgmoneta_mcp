@@ -13,11 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+mod info;
+
 use anyhow::anyhow;
 use serde::Serialize;
 use super::constant::*;
 use chrono::Local;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use super::security::SecurityUtil;
 use super::configuration::CONFIG;
@@ -49,38 +50,7 @@ where
     request: R,
 }
 
-#[derive(Serialize, Clone)]
-struct InfoRequest {
-    #[serde(rename = "Server")]
-    server: String,
-    #[serde(rename = "Backup")]
-    backup: String,
-}
-
 pub struct PgmonetaClient;
-
-impl PgmonetaClient {
-    pub async fn request_backup_info(username: &str, server: &str, backup: &str) -> anyhow::Result<String> {
-        let info_request = InfoRequest {
-            server: server.to_string(),
-            backup: backup.to_string(),
-        };
-        let mut stream = Self::connect_to_server(username).await?;
-        let header = Self::build_request_header(Command::INFO);
-        let request = PgmonetaRequest {
-            request: info_request,
-            header,
-        };
-        let request_str = serde_json::to_string(&request)?;
-        stream.write_all(request_str.as_bytes()).await?;
-
-        let mut response_str = String::new();
-        stream.read_to_string(&mut response_str).await?;
-
-        Ok(response_str)
-    }
-}
-
 impl PgmonetaClient {
     fn build_request_header(command: u32) -> RequestHeader {
         let timestamp = Local::now().format("%Y%m%d%H%M%S").to_string();

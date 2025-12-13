@@ -18,6 +18,9 @@ pub const CLIENT_VERSION: &str = "0.20.0";
 
 pub const MANAGEMENT_CATEGORY_OUTCOME: &str = "Outcome";
 pub const MANAGEMENT_ARGUMENT_STATUS: &str = "Status";
+pub const DEFAULT_USER_CONF: &str = "/etc/pgmoneta_mcp/pgmoneta_mcp_users.toml";
+pub const DEFAULT_CONF: &str = "/etc/pgmoneta_mcp/pgmoneta_mcp.toml";
+pub const MASTER_KEY_PATH: &str = ".pgmoneta-mcp/master.key";
 
 pub struct Command;
 pub struct Format;

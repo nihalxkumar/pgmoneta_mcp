@@ -16,11 +16,10 @@
 use anyhow::anyhow;
 use std::collections::HashMap;
 use config::Config;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use once_cell::sync::OnceCell;
 
 pub static CONFIG: OnceCell<Configuration> = OnceCell::new();
-
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Configuration {
@@ -30,11 +29,10 @@ pub struct Configuration {
     pub admins: HashMap<String, String> //username -> password
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Pgmoneta {
     pub host: String,
     pub port: i32,
-    pub version: String,
 }
 
 pub fn load_configuration(config_path: &str, user_path: &str) -> anyhow::Result<Configuration> {

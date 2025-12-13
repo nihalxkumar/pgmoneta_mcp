@@ -18,9 +18,9 @@ use rmcp::transport::streamable_http_server::{
 };
 use tracing_subscriber::{self, EnvFilter};
 use clap::Parser;
-mod common;
-use common::handler::PgmonetaHandler;
-use common::configuration;
+use pgmoneta_mcp::handler::PgmonetaHandler;
+use pgmoneta_mcp::configuration;
+use pgmoneta_mcp::constant::*;
 
 const BIND_ADDRESS: &str = "0.0.0.0";
 
@@ -31,11 +31,11 @@ const BIND_ADDRESS: &str = "0.0.0.0";
 )]
 struct Args {
     /// Path to pgmoneta users configuration file
-    #[arg(short, long, default_value = "/etc/pgmoneta_mcp/pgmoneta_mcp_users.toml")]
+    #[arg(short, long, default_value = DEFAULT_USER_CONF)]
     users: String,
 
     /// Path to pgmoneta MCP configuration file
-    #[arg(short, long, default_value = "/etc/pgmoneta_mcp/pgmoneta_mcp.toml")]
+    #[arg(short, long, default_value = DEFAULT_CONF)]
     conf: String,
 }
 
