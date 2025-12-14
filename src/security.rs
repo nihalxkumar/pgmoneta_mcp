@@ -59,6 +59,17 @@ impl SecurityUtil {
         Ok(self.base64_decode(&key)?)
     }
 
+    pub fn write_master_key(&self, key: &str) -> anyhow::Result<()> {
+        let home_path = home_dir();
+        if home_path.is_none() {
+            return Err(anyhow!("Unable to find home path"))
+        }
+        let key_path = home_path.unwrap().join(MASTER_KEY_PATH);
+        let key_encoded = self.base64_encode(key.as_bytes())?;
+        fs::write(key_path, &key_encoded)?;
+        Ok(())
+    }
+
     pub fn encrypt_to_base64_string(&self, plain_text: &[u8], master_key: &[u8]) -> anyhow::Result<String> {
         let (cipher_text, nonce_bytes, salt) = Self::encrypt_text(plain_text, master_key)?;
         let mut bytes = Vec::new();

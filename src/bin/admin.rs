@@ -21,6 +21,7 @@ use configuration::UserConf;
 use std::path::Path;
 use std::fs;
 use std::collections::HashMap;
+use rpassword::prompt_password;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -68,7 +69,9 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Commands::MasterKey => {}
+        Commands::MasterKey => {
+            MasterKey::set_master_key()?;
+        }
     }
     Ok(())
 }
@@ -108,7 +111,15 @@ impl User {
 struct MasterKey;
 
 impl MasterKey {
-    pub fn set_master_key(master_key: &str) -> Result<()> {
-        Ok(())
+    pub fn set_master_key() -> Result<()> {
+        let sutil = SecurityUtil::new();
+        let master_key = prompt_password("Please enter your master key").unwrap();
+        let m = prompt_password("Please enter your master key again").unwrap();
+
+        if master_key != m {
+            return Err(anyhow!("Passwords do not match"))
+        }
+
+        sutil.write_master_key(&master_key)
     }
 }
