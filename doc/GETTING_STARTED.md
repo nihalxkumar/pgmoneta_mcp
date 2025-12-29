@@ -1,9 +1,10 @@
 # Getting Started
 
 ## Prerequisites
-You need to have PostgreSQL 14+ and pgmoneta installed and running. See pgmoneta's 
-[tutorials](https://pgmoneta.github.io/tutorials/01_install.html) on how to install and run pgmoneta. Note that
-you need to run pgmoneta in remote admin mode, with yourself added to the users configuration. You also need to configure 
+
+You need to have PostgreSQL 14+ and pgmoneta installed and running. See pgmoneta's
+[manual](https://github.com/pgmoneta/pgmoneta/tree/main/doc/manual/en) on how to install and run pgmoneta. Note that
+you need to run pgmoneta in remote admin mode, with yourself added to the users configuration. You also need to configure
 `management` in your configuration to specify the port the pgmoneta server runs management at.
 
 First, add yourself to users if you haven't done that already.
@@ -17,10 +18,12 @@ pgmoneta -A <your_user_conf.conf> -c <your_pgmoneta_conf.conf>
 ```
 
 ## Build the project
-To build the project, run `cargo build` inside project's root directory. This will build two binaries, `pgmoneta-mcp-server` 
+
+To build the project, run `cargo build` inside project's root directory. This will build two binaries, `pgmoneta-mcp-server`
 and `pgmoneta-mcp-admin`. Alternatively, run `cargo install .` to build and install the project.
 
 ## Configure user
+
 First, add the master key if you haven't done that already.
 ```
 pgmoneta-mcp-admin master-key
@@ -34,6 +37,7 @@ pgmoneta-mcp-admin user -U <your_user_id> -f pgmoneta_mcp_users.toml add -p <you
 ```
 
 ## Configure pgmoneta MCP server
+
 Create a configuration toml file `pgmoneta_mcp.toml`. An example is as follows
 ```
 port = 8000
@@ -46,12 +50,14 @@ Note that the port under pgmoneta section has to match your management port conf
 is what you'll run your MCP server at.
 
 ## Run MCP server
+
 First check again if your pgmoneta server is up and running. Then to start the server, run
 ```
 pgmoneta-mcp-server -u pgmoneta_mcp_users.toml -c pgmoneta_mcp.toml
 ```
 
 ## Add MCP server to VS Code
+
 We will use VS code as an example. You can of course choose other MCP clients.
 
 ### Prerequisite
@@ -65,7 +71,7 @@ to open the corresponding port, or alternatively, use SSH tunneling.
 
 ### Start your server
 At the extension tab, you will see the installed MCP servers. Choose the pgmoneta MCP server you just added,
-click the gear icon, choose "Start Server". This will let VS code to try connecting with your MCP server and 
+click the gear icon, choose "Start Server". This will let VS code to try connecting with your MCP server and
 discover available tool.
 
 ### Use your MCP server
