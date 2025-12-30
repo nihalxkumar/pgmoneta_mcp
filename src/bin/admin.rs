@@ -37,7 +37,7 @@ enum Commands {
         #[command(subcommand)]
         action: UserAction,
         /// The admin user
-        #[arg(short = 'U', long)]
+        #[arg(short = 'u', long)]
         user: String,
         /// The user configuration file
         #[arg(short = 'f', long)]
