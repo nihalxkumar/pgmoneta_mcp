@@ -14,7 +14,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use anyhow::anyhow;
-use config::Config;
+use config::{Config, FileFormat};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -24,22 +24,27 @@ pub type UserConf = HashMap<String, HashMap<String, String>>;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Configuration {
-    pub pgmoneta: Pgmoneta,
-    #[serde(default = "default_port")]
-    pub port: i32,
+    pub pgmoneta_mcp: PgmonetaMcpConfiguration,
+    pub pgmoneta: PgmonetaConfiguration,
     pub admins: HashMap<String, String>, //username -> password
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Pgmoneta {
+pub struct PgmonetaConfiguration {
     pub host: String,
+    pub port: i32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PgmonetaMcpConfiguration {
+    #[serde(default = "default_port")]
     pub port: i32,
 }
 
 pub fn load_configuration(config_path: &str, user_path: &str) -> anyhow::Result<Configuration> {
     let conf = Config::builder()
-        .add_source(config::File::with_name(config_path))
-        .add_source(config::File::with_name(user_path))
+        .add_source(config::File::with_name(config_path).format(FileFormat::Ini))
+        .add_source(config::File::with_name(user_path).format(FileFormat::Ini))
         .build()?;
     conf.try_deserialize::<Configuration>().map_err(|e| {
         anyhow!(
@@ -53,7 +58,7 @@ pub fn load_configuration(config_path: &str, user_path: &str) -> anyhow::Result<
 
 pub fn load_user_configuration(user_path: &str) -> anyhow::Result<UserConf> {
     let conf = Config::builder()
-        .add_source(config::File::with_name(user_path))
+        .add_source(config::File::with_name(user_path).format(FileFormat::Ini))
         .build()?;
     conf.try_deserialize::<UserConf>().map_err(|e| {
         anyhow!(

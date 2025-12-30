@@ -30,7 +30,7 @@ const BIND_ADDRESS: &str = "0.0.0.0";
 )]
 struct Args {
     /// Path to pgmoneta MCP users configuration file
-    #[arg(short, long)]
+    #[arg(short = 'U', long)]
     users: String,
 
     /// Path to pgmoneta MCP configuration file
@@ -42,7 +42,7 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let config = configuration::load_configuration(&args.conf, &args.users)?;
-    let address = format!("{BIND_ADDRESS}:{}", &config.port);
+    let address = format!("{BIND_ADDRESS}:{}", &config.pgmoneta_mcp.port);
     configuration::CONFIG
         .set(config)
         .expect("CONFIG already initialized");

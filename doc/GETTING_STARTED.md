@@ -33,13 +33,14 @@ This will prompt you to input your master key.
 Add the same user and password you added to pgmoneta server to pgmoneta MCP server, creating or updating
 your user configuration toml file.
 ```
-pgmoneta-mcp-admin user -U <your_user_id> -f pgmoneta_mcp_users.toml add -p <your_password>
+pgmoneta-mcp-admin user -U <your_user_id> -f <your_mcp_user_conf.conf> add -p <your_password>
 ```
 
 ## Configure pgmoneta MCP server
 
-Create a configuration toml file `pgmoneta_mcp.toml`. An example is as follows
+Create a configuration file `pgmoneta_mcp.conf`. An example is as follows
 ```
+[pgmoneta_mcp]
 port = 8000
 
 [pgmoneta]
@@ -53,7 +54,7 @@ is what you'll run your MCP server at.
 
 First check again if your pgmoneta server is up and running. Then to start the server, run
 ```
-pgmoneta-mcp-server -u pgmoneta_mcp_users.toml -c pgmoneta_mcp.toml
+pgmoneta-mcp-server -U pgmoneta_mcp_users.conf -c pgmoneta_mcp.conf
 ```
 
 ## Add MCP server to VS Code
