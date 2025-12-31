@@ -53,14 +53,18 @@ enum Commands {
 enum UserAction {
     /// Add a new user to configuration file, the file will be automatically created if not exist.
     /// If the user exists, new password will be set to the existing user.
-    Add {
-    },
+    Add {},
 }
 fn main() -> Result<()> {
     let args = Args::parse();
     match args.command {
-        Commands::User { action, user, file, password } => match action {
-            UserAction::Add { } => User::set_user(&file, &user, &password)?,
+        Commands::User {
+            action,
+            user,
+            file,
+            password,
+        } => match action {
+            UserAction::Add {} => User::set_user(&file, &user, &password)?,
         },
         Commands::MasterKey => {
             MasterKey::set_master_key()?;

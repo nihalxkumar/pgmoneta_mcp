@@ -49,7 +49,7 @@ impl SecurityUtil {
     }
 
     pub fn base64_decode(&self, text: &str) -> anyhow::Result<Vec<u8>> {
-        Ok(self.base64_engine.decode(&text)?)
+        Ok(self.base64_engine.decode(text)?)
     }
 
     pub fn load_master_key(&self) -> anyhow::Result<Vec<u8>> {
@@ -59,7 +59,7 @@ impl SecurityUtil {
         }
         let key_path = home_path.unwrap().join(MASTER_KEY_PATH);
         let key = fs::read_to_string(key_path)?;
-        Ok(self.base64_decode(&key)?)
+        self.base64_decode(&key)
     }
 
     pub fn write_master_key(&self, key: &str) -> anyhow::Result<()> {
@@ -154,7 +154,7 @@ impl SecurityUtil {
         nonce_bytes: &[u8],
         salt: &[u8],
     ) -> anyhow::Result<Vec<u8>> {
-        let mut derived_key_bytes = Self::derive_key(master_key, &salt);
+        let mut derived_key_bytes = Self::derive_key(master_key, salt);
         let derived_key = aes_gcm::Key::<Aes256Gcm>::from_slice(&derived_key_bytes);
         let cipher = Aes256Gcm::new(derived_key);
 
@@ -164,7 +164,7 @@ impl SecurityUtil {
             .map_err(|e| anyhow!("AES decryption failed {:?}", e));
         derived_key_bytes.zeroize();
 
-        Ok(plaintext?)
+        plaintext
     }
 
     /// Connect to pgmoneta server using SCRAM-SHA-256 authentication.
@@ -262,6 +262,12 @@ impl SecurityUtil {
         msg.write_u8(b'\0').await?;
         msg.write_u8(b'\0').await?;
         Ok(msg)
+    }
+}
+
+impl Default for SecurityUtil {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

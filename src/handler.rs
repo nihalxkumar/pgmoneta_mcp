@@ -125,7 +125,7 @@ impl PgmonetaHandler {
             "WorkspaceFreeSpace",
             "HotStandbySize",
         ];
-        let hex_string_fields = vec![
+        let hex_string_fields = [
             "CheckpointHiLSN",
             "CheckpointLoLSN",
             "StartHiLSN",
@@ -133,7 +133,7 @@ impl PgmonetaHandler {
             "EndHiLSN",
             "EndLoLSN",
         ];
-        let object_arr_fields = vec!["Backups"];
+        let object_arr_fields = ["Backups"];
         let compression_field = "Compression";
         let encryption_field = "Encryption";
         let command_field = "Command";
@@ -142,7 +142,7 @@ impl PgmonetaHandler {
         for (key, value) in map {
             if file_size_fields.contains(&key.as_str()) {
                 let size = value.as_u64().unwrap();
-                let size_str = Utility::format_file_size(size as u64);
+                let size_str = Utility::format_file_size(size);
                 trans_res.insert(key.clone(), Value::from(size_str));
             } else if hex_string_fields.contains(&key.as_str()) {
                 let num = value.as_u64().unwrap();
@@ -180,6 +180,13 @@ impl PgmonetaHandler {
         Ok(trans_res)
     }
 }
+
+impl Default for PgmonetaHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[tool_handler]
 impl ServerHandler for PgmonetaHandler {
     fn get_info(&self) -> ServerInfo {
