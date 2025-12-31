@@ -30,11 +30,11 @@ const BIND_ADDRESS: &str = "0.0.0.0";
 )]
 struct Args {
     /// Path to pgmoneta MCP configuration file
-    #[arg(short = 'c', long)]
+    #[arg(short = 'c', long, default_value = "/etc/pgmoneta-mcp/pgmoneta-mcp.conf")]
     conf: String,
 
     /// Path to pgmoneta MCP users configuration file
-    #[arg(short = 'u', long)]
+    #[arg(short = 'u', long, default_value = "/etc/pgmoneta-mcp/pgmoneta-mcp-users.conf")]
     users: String,
 }
 

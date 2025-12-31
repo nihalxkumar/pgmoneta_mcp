@@ -8,11 +8,13 @@ you need to run pgmoneta in remote admin mode, with yourself added to the users 
 `management` in your configuration to specify the port the pgmoneta server runs management at.
 
 First, add yourself to users if you haven't done that already.
+
 ```
 pgmoneta-admin -U <your_user_id> -P <your_password> -f <your_user_conf_file> user add
 ```
 
 Second, run pgmoneta in remote admin mode with management port configured.
+
 ```
 pgmoneta -A <your_user_conf.conf> -c <your_pgmoneta_conf.conf>
 ```
@@ -25,13 +27,16 @@ and `pgmoneta-mcp-admin`. Alternatively, run `cargo install .` to build and inst
 ## Configure user
 
 First, add the master key if you haven't done that already.
+
 ```
 pgmoneta-mcp-admin master-key
 ```
+
 This will prompt you to input your master key.
 
 Add the same user and password you added to pgmoneta server to pgmoneta MCP server, creating or updating
-your user configuration toml file.
+your user configuration file.
+
 ```
 pgmoneta-mcp-admin user -U <your_user_id> -P <your_password> -f <your_mcp_user_conf.conf> add
 ```
@@ -39,6 +44,7 @@ pgmoneta-mcp-admin user -U <your_user_id> -P <your_password> -f <your_mcp_user_c
 ## Configure pgmoneta MCP server
 
 Create a configuration file `pgmoneta_mcp.conf`. An example is as follows
+
 ```
 [pgmoneta_mcp]
 port = 8000
@@ -47,15 +53,20 @@ port = 8000
 host = "localhost"
 port = 5000
 ```
+
 Note that the port under pgmoneta section has to match your management port configured earlier. While the first port
 is what you'll run your MCP server at.
 
 ## Run MCP server
 
 First check again if your pgmoneta server is up and running. Then to start the server, run
+
 ```
-pgmoneta-mcp-server -u pgmoneta_mcp_users.conf -c pgmoneta_mcp.conf
-``**
+pgmoneta-mcp-server -c pgmoneta_mcp.conf -u pgmoneta_mcp_users.conf
+```
+
+The defaults for configuration is `/etc/pgmoneta-mcp/pgmoneta-mcp.conf` and for users it is
+`/etc/pgmoneta-mcp/pgmoneta-mcp-users.conf`.
 
 ## Add MCP server to VS Code
 
