@@ -7,6 +7,21 @@ on:
     branches: [ main ]
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
   check:
     runs-on: ubuntu-latest
     steps:
@@ -47,13 +62,8 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
-        components: rustfmt, clippy
+        components: clippy
         override: true
-    - name: Run cargo fmt check
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --all --check
     - name: Run cargo clippy
       uses: actions-rs/cargo@v1
       with:
