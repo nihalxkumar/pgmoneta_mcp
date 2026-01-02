@@ -155,24 +155,21 @@ impl SecurityUtil {
     const MAX_PG_MESSAGE_LEN: usize = 64 * 1024;
 
     async fn read_message(stream: &mut TcpStream) -> anyhow::Result<Vec<u8>> {
-        let mut msg_type = [0u8; 1];
-        stream.read_exact(&mut msg_type).await?;
+        let msg_type= stream.read_u8().await?;
 
-        let mut len_bytes = [0u8; 4];
-        stream.read_exact(&mut len_bytes).await?;
+        let len = stream.read_u32().await? as usize;
 
-        let len = u32::from_be_bytes(len_bytes) as usize;
         if !(4..=Self::MAX_PG_MESSAGE_LEN).contains(&len) {
             return Err(anyhow!("Invalid message length {}", len));
         }
 
-        let mut rest = vec![0u8; len - 4];
-        stream.read_exact(&mut rest).await?;
+        let mut payload = vec![0u8; len - 4];
+        stream.read_exact(&mut payload).await?;
 
-        let mut msg = Vec::with_capacity(1 + 4 + rest.len());
-        msg.push(msg_type[0]);
-        msg.extend_from_slice(&len_bytes);
-        msg.extend_from_slice(&rest);
+        let mut msg = Vec::with_capacity(1 + 4 + payload.len());
+        msg.push(msg_type);
+        msg.write_u32(len as u32).await?;
+        msg.extend(&payload);
         Ok(msg)
     }
     fn derive_key(master_key: &[u8], salt: &[u8]) -> anyhow::Result<[u8; 32]> {

@@ -107,9 +107,9 @@ impl PgmonetaClient {
     async fn read_response(stream: &mut TcpStream) -> anyhow::Result<String> {
         let _compression = stream.read_u8().await?;
         let _encryption = stream.read_u8().await?;
-        let _len = stream.read_u32().await?;
-        let mut response = [0u8; 1024];
-        let n = stream.read(&mut response).await?;
+        let len = stream.read_u32().await? as usize;
+        let mut response = vec![0u8; len];
+        let n = stream.read_exact(&mut response).await?;
         let response_str = String::from_utf8(Vec::from(&response[..n]))?;
         Ok(response_str)
     }
