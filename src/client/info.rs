@@ -17,7 +17,7 @@ use super::PgmonetaClient;
 use crate::constant::Command;
 use serde::Serialize;
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 struct InfoRequest {
     #[serde(rename = "Server")]
     server: String,
@@ -25,7 +25,7 @@ struct InfoRequest {
     backup: String,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 struct ListBackupsRequest {
     #[serde(rename = "Server")]
     server: String,

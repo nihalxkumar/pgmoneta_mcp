@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use super::constant::{LogLevel, LogType};
 use anyhow::anyhow;
 use config::{Config, FileFormat};
 use once_cell::sync::OnceCell;
@@ -39,6 +40,14 @@ pub struct PgmonetaConfiguration {
 pub struct PgmonetaMcpConfiguration {
     #[serde(default = "default_port")]
     pub port: i32,
+    #[serde(default = "default_log_path")]
+    pub log_path: String,
+    #[serde(default = "default_log_level")]
+    pub log_level: String,
+    #[serde(default = "default_log_type")]
+    pub log_type: String,
+    #[serde(default = "default_log_line_prefix")]
+    pub log_line_prefix: String,
 }
 
 pub fn load_configuration(config_path: &str, user_path: &str) -> anyhow::Result<Configuration> {
@@ -71,4 +80,20 @@ pub fn load_user_configuration(user_path: &str) -> anyhow::Result<UserConf> {
 
 fn default_port() -> i32 {
     8000
+}
+
+fn default_log_path() -> String {
+    "pgmoneta_mcp.log".to_string()
+}
+
+fn default_log_level() -> String {
+    LogLevel::INFO.to_string()
+}
+
+fn default_log_type() -> String {
+    LogType::CONSOLE.to_string()
+}
+
+fn default_log_line_prefix() -> String {
+    "%Y-%m-%d %H:%M:%S".to_string()
 }

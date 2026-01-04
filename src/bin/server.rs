@@ -16,10 +16,10 @@
 use clap::Parser;
 use pgmoneta_mcp::configuration;
 use pgmoneta_mcp::handler::PgmonetaHandler;
+use pgmoneta_mcp::logging::Logger;
 use rmcp::transport::streamable_http_server::{
     StreamableHttpService, session::local::LocalSessionManager,
 };
-use tracing_subscriber::{self, EnvFilter};
 
 const BIND_ADDRESS: &str = "0.0.0.0";
 
@@ -51,15 +51,14 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let config = configuration::load_configuration(&args.conf, &args.users)?;
     let address = format!("{BIND_ADDRESS}:{}", &config.pgmoneta_mcp.port);
-    configuration::CONFIG
-        .set(config)
-        .expect("CONFIG already initialized");
 
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
-        .with_writer(std::io::stderr)
-        .with_ansi(false)
-        .init();
+    let _guard = Logger::init(
+        config.pgmoneta_mcp.log_level.as_str(),
+        config.pgmoneta_mcp.log_type.as_str(),
+        config.pgmoneta_mcp.log_line_prefix.as_str(),
+        config.pgmoneta_mcp.log_path.as_str(),
+    );
+
     let handler = StreamableHttpService::new(
         || Ok(PgmonetaHandler::new()),
         LocalSessionManager::default().into(),
@@ -69,6 +68,11 @@ async fn main() -> anyhow::Result<()> {
     let router = axum::Router::new().nest_service("/mcp", handler);
     let tcp_listener = tokio::net::TcpListener::bind(&address).await?;
 
+    configuration::CONFIG
+        .set(config)
+        .expect("CONFIG already initialized");
+
+    tracing::info!("Starting MCP server at {address}");
     println!("Starting pgmoneta MCP server at {address}");
 
     let _ = axum::serve(tcp_listener, router)

@@ -28,6 +28,9 @@ pub struct Compression;
 pub struct Encryption;
 pub struct ManagementError;
 pub struct Sort;
+pub struct LogLevel;
+
+pub struct LogType;
 
 impl Command {
     pub const LIST_BACKUP: u32 = 2;
@@ -481,4 +484,18 @@ impl ManagementError {
 impl Sort {
     pub const ASC: &str = "asc";
     pub const DESC: &str = "desc";
+}
+
+impl LogLevel {
+    pub const TRACE: &str = "trace";
+    pub const DEBUG: &str = "debug";
+
+    pub const INFO: &str = "info";
+    pub const WARN: &str = "warn";
+    pub const ERROR: &str = "error";
+}
+
+impl LogType {
+    pub const CONSOLE: &str = "console";
+    pub const FILE: &str = "file";
 }

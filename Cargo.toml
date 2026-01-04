@@ -34,6 +34,7 @@ tracing-subscriber = { version = "0.3", features = [
     "env-filter",
     "std",
     "fmt",
+    "chrono"
 ] }
 axum = { version = "0.8", features = ["macros"] }
 config = { version = "0.15", features = ["yaml"] }
@@ -49,4 +50,5 @@ clap = { version = "4.5.53", features = ["derive"] }
 chrono = "0.4.42"
 rpassword = "7.4.0"
 serde_ini = "0.2.0"
+tracing-appender = "0.2.4"
 

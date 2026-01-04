@@ -18,5 +18,6 @@ pub mod constant;
 pub mod handler;
 
 mod client;
+pub mod logging;
 pub mod security;
-mod utils;
+pub mod utils;

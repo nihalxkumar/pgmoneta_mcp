@@ -340,6 +340,12 @@ impl SecurityUtil {
                 auth_type
             ));
         }
+        tracing::info!(
+            host = host,
+            port = port,
+            username = username,
+            "Authenticated with server"
+        );
         Ok(stream)
     }
 

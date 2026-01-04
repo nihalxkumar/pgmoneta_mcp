@@ -21,10 +21,11 @@ use super::security::SecurityUtil;
 use anyhow::anyhow;
 use chrono::Local;
 use serde::Serialize;
+use std::fmt::Debug;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 struct RequestHeader {
     #[serde(rename = "Command")]
     command: u32,
@@ -40,10 +41,10 @@ struct RequestHeader {
     encryption: u8,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 struct PgmonetaRequest<R>
 where
-    R: Serialize + Clone,
+    R: Serialize + Clone + Debug,
 {
     #[serde(rename = "Header")]
     header: RequestHeader,
@@ -116,14 +117,17 @@ impl PgmonetaClient {
 
     async fn forward_request<R>(username: &str, command: u32, request: R) -> anyhow::Result<String>
     where
-        R: Serialize + Clone,
+        R: Serialize + Clone + Debug,
     {
         let mut stream = Self::connect_to_server(username).await?;
+        tracing::info!(username = username, "Connected to server");
+
         let header = Self::build_request_header(command);
         let request = PgmonetaRequest { request, header };
 
         let request_str = serde_json::to_string(&request)?;
         Self::write_request(&request_str, &mut stream).await?;
+        tracing::debug!(username = username, request = ?request, "Sent request to server");
         Self::read_response(&mut stream).await
     }
 }
