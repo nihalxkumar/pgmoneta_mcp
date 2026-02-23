@@ -128,7 +128,16 @@ fn main() -> Result<()> {
                         .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
                     User::remove_user(file, user)?;
                 }
-                UserAction::Edit => return Err(anyhow!("User edit is not implemented yet")),
+                UserAction::Edit => {
+                    let user = args
+                        .user
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
+                    let password = args.password.as_deref().ok_or_else(|| {
+                        anyhow!("Missing required argument: -P, --password <PASSWORD>")
+                    })?;
+                    User::edit_user(file, user, password)?;
+                }
                 UserAction::Ls => return Err(anyhow!("User ls is not implemented yet")),
             }
         }
@@ -188,6 +197,42 @@ impl User {
             if user_conf.remove(user).is_none() {
                 return Err(anyhow!("User '{}' not found", user));
             }
+        } else {
+            return Err(anyhow!(
+                "Unable to find admins section in user configuration"
+            ));
+        }
+
+        let conf_str = serde_ini::to_string(&conf)?;
+        fs::write(file, &conf_str)?;
+
+        Ok(())
+    }
+
+    pub fn edit_user(file: &str, user: &str, password: &str) -> Result<()> {
+        let path = Path::new(file);
+        let sutil = SecurityUtil::new();
+
+        if !path.exists() {
+            return Err(anyhow!("User file '{}' does not exist", file));
+        }
+
+        let master_key = sutil.load_master_key().map_err(|e| {
+            anyhow!(
+                "Unable to load the master key, needed for editing user: {:?}",
+                e
+            )
+        })?;
+
+        let password_str = sutil.encrypt_to_base64_string(password.as_bytes(), &master_key[..])?;
+
+        let mut conf = configuration::load_user_configuration(file)?;
+
+        if let Some(user_conf) = conf.get_mut("admins") {
+            if user_conf.get(user).is_none() {
+                return Err(anyhow!("User '{}' not found", user));
+            }
+            user_conf.insert(user.to_string(), password_str);
         } else {
             return Err(anyhow!(
                 "Unable to find admins section in user configuration"
