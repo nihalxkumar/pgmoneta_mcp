@@ -24,37 +24,61 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Parser, Debug)]
-#[command(name = "pgmoneta-mcp-admin", about = "Pgmoneta-mcp admin tool")]
+#[command(
+    name = "pgmoneta-mcp-admin",
+    about = "Administration utility for pgmoneta-mcp",
+    version
+)]
 struct Args {
+    /// The user configuration file
+    #[arg(short = 'f', long)]
+    file: Option<String>,
+
+    /// The user name
+    #[arg(short = 'U', long)]
+    user: Option<String>,
+
+    /// The password for the user
+    #[arg(short = 'P', long)]
+    password: Option<String>,
+
+    /// Generate a password
+    #[arg(short = 'g', long)]
+    generate: bool,
+
+    /// Password length (default: 64)
+    #[arg(short = 'l', long, default_value = "64")]
+    length: usize,
+
+    /// Output format
+    #[arg(short = 'F', long, value_enum, default_value = "text")]
+    format: OutputFormat,
+
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// User related operations
+    /// Create or update the master key
+    MasterKey,
+    /// Manage a specific user
     User {
         #[command(subcommand)]
         action: UserAction,
-        /// The admin user
-        #[arg(short = 'U', long)]
-        user: String,
-        /// The user configuration file
-        #[arg(short = 'f', long)]
-        file: String,
     },
-    MasterKey,
 }
 
 #[derive(Subcommand, Debug)]
 enum UserAction {
-    /// Add a new user to configuration file, the file will be automatically created if not exist.
-    /// If the user exists, new password will be set to the existing user.
-    Add {
-        /// The admin user password
-        #[arg(short = 'P', long)]
-        password: String,
-    },
+    /// Add a new user to configuration file
+    Add,
+    /// Remove an existing user
+    Del,
+    /// Change the password for an existing user
+    Edit,
+    /// List all available users
+    Ls,
 }
 
 #[derive(Debug, Clone, Copy, Default, clap::ValueEnum)]
@@ -75,14 +99,35 @@ struct AdminResponse {
 }
 fn main() -> Result<()> {
     let args = Args::parse();
+
     match args.command {
-        Commands::User { action, user, file } => match action {
-            UserAction::Add { password } => User::set_user(&file, &user, &password)?,
-        },
         Commands::MasterKey => {
             MasterKey::set_master_key()?;
         }
+        Commands::User { action } => {
+            let file = args
+                .file
+                .as_ref()
+                .ok_or_else(|| anyhow!("Missing required argument: -f, --file <FILE>"))?;
+
+            match action {
+                UserAction::Add => {
+                    let user = args
+                        .user
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
+                    let password = args.password.as_deref().ok_or_else(|| {
+                        anyhow!("Missing required argument: -P, --password <PASSWORD>")
+                    })?;
+                    User::set_user(file, user, password)?;
+                }
+                UserAction::Del => return Err(anyhow!("User del is not implemented yet")),
+                UserAction::Edit => return Err(anyhow!("User edit is not implemented yet")),
+                UserAction::Ls => return Err(anyhow!("User ls is not implemented yet")),
+            }
+        }
     }
+
     Ok(())
 }
 
