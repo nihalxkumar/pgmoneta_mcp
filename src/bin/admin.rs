@@ -121,7 +121,13 @@ fn main() -> Result<()> {
                     })?;
                     User::set_user(file, user, password)?;
                 }
-                UserAction::Del => return Err(anyhow!("User del is not implemented yet")),
+                UserAction::Del => {
+                    let user = args
+                        .user
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
+                    User::remove_user(file, user)?;
+                }
                 UserAction::Edit => return Err(anyhow!("User edit is not implemented yet")),
                 UserAction::Ls => return Err(anyhow!("User ls is not implemented yet")),
             }
@@ -161,6 +167,31 @@ impl User {
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
+        }
+
+        let conf_str = serde_ini::to_string(&conf)?;
+        fs::write(file, &conf_str)?;
+
+        Ok(())
+    }
+
+    pub fn remove_user(file: &str, user: &str) -> Result<()> {
+        let path = Path::new(file);
+
+        if !path.exists() {
+            return Err(anyhow!("User file '{}' does not exist", file));
+        }
+
+        let mut conf = configuration::load_user_configuration(file)?;
+
+        if let Some(user_conf) = conf.get_mut("admins") {
+            if user_conf.remove(user).is_none() {
+                return Err(anyhow!("User '{}' not found", user));
+            }
+        } else {
+            return Err(anyhow!(
+                "Unable to find admins section in user configuration"
+            ));
         }
 
         let conf_str = serde_ini::to_string(&conf)?;
