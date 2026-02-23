@@ -18,6 +18,7 @@ use configuration::UserConf;
 use pgmoneta_mcp::configuration;
 use pgmoneta_mcp::security::SecurityUtil;
 use rpassword::prompt_password;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -54,6 +55,23 @@ enum UserAction {
         #[arg(short = 'P', long)]
         password: String,
     },
+}
+
+#[derive(Debug, Clone, Copy, Default, clap::ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct AdminResponse {
+    command: String,
+    outcome: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    users: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    generated_password: Option<String>,
 }
 fn main() -> Result<()> {
     let args = Args::parse();
