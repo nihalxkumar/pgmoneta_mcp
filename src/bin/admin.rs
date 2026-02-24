@@ -357,12 +357,12 @@ impl User {
             OutputFormat::Text => {
                 println!("Command: {}", response.command);
                 println!("Outcome: {}", response.outcome);
-                if let Some(users) = &response.users {
-                    if !users.is_empty() {
-                        println!("Users:");
-                        for user in users {
-                            println!("  - {}", user);
-                        }
+                if let Some(users) = &response.users
+                    && !users.is_empty()
+                {
+                    println!("Users:");
+                    for user in users {
+                        println!("  - {}", user);
                     }
                 }
                 if let Some(pwd) = &response.generated_password {
