@@ -136,6 +136,30 @@ impl SecurityUtil {
             salt,
         )
     }
+
+    /// Generate a random password of the specified length.
+    /// Uses alphanumeric characters and common special characters.
+    pub fn generate_password(&self, length: usize) -> anyhow::Result<String> {
+        const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                              abcdefghijklmnopqrstuvwxyz\
+                              0123456789\
+                              !@$%^&*()-_=+[{]}\\|:'\",<.>/?";
+
+        let mut password = vec![0u8; length];
+        let mut random_bytes = vec![0u8; length];
+
+        rand::rngs::OsRng.try_fill_bytes(&mut random_bytes)?;
+
+        for (i, byte) in random_bytes.iter().enumerate() {
+            password[i] = CHARS[*byte as usize % CHARS.len()];
+        }
+
+        // Zero out random bytes for security
+        random_bytes.zeroize();
+
+        String::from_utf8(password)
+            .map_err(|e| anyhow!("Generated password contains invalid UTF-8: {:?}", e))
+    }
 }
 
 impl SecurityUtil {
@@ -405,5 +429,37 @@ mod tests {
             .decrypt_from_base64_string(&res, master_key)
             .expect("Decryption should succeed");
         assert_eq!(decrypted_text, text.as_bytes())
+    }
+
+    #[test]
+    fn test_generate_password_default_length() {
+        let sutil = SecurityUtil::new();
+        let password = sutil
+            .generate_password(64)
+            .expect("Password generation should succeed");
+        assert_eq!(password.len(), 64);
+    }
+
+    #[test]
+    fn test_generate_password_custom_length() {
+        let sutil = SecurityUtil::new();
+        let password = sutil
+            .generate_password(32)
+            .expect("Password generation should succeed");
+        assert_eq!(password.len(), 32);
+    }
+
+    #[test]
+    fn test_generate_password_contains_valid_chars() {
+        let sutil = SecurityUtil::new();
+        let password = sutil
+            .generate_password(100)
+            .expect("Password generation should succeed");
+        // Should only contain alphanumeric and special chars from the defined set.
+        let valid_chars: std::collections::HashSet<char> =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@$%^&*()-_=+[{]}\\|:'\",<.>/?"
+                .chars()
+                .collect();
+        assert!(password.chars().all(|c| valid_chars.contains(&c)));
     }
 }

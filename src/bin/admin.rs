@@ -14,63 +14,151 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
-use configuration::UserConf;
-use pgmoneta_mcp::configuration;
+use pgmoneta_mcp::configuration::{self, UserConf};
 use pgmoneta_mcp::security::SecurityUtil;
 use rpassword::prompt_password;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
 #[derive(Parser, Debug)]
-#[command(name = "pgmoneta-mcp-admin", about = "Pgmoneta-mcp admin tool")]
+#[command(
+    name = "pgmoneta-mcp-admin",
+    about = "Administration utility for pgmoneta-mcp",
+    version
+)]
 struct Args {
+    /// The user configuration file
+    #[arg(short = 'f', long)]
+    file: Option<String>,
+
+    /// The user name
+    #[arg(short = 'U', long)]
+    user: Option<String>,
+
+    /// The password for the user
+    #[arg(short = 'P', long)]
+    password: Option<String>,
+
+    /// Generate a password
+    #[arg(short = 'g', long)]
+    generate: bool,
+
+    /// Password length (default: 64)
+    #[arg(short = 'l', long, default_value = "64")]
+    length: usize,
+
+    /// Output format
+    #[arg(short = 'F', long, value_enum, default_value = "text")]
+    format: OutputFormat,
+
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// User related operations
+    /// Create or update the master key
+    MasterKey,
+    /// Manage a specific user
     User {
         #[command(subcommand)]
         action: UserAction,
-        /// The admin user
-        #[arg(short = 'U', long)]
-        user: String,
-        /// The user configuration file
-        #[arg(short = 'f', long)]
-        file: String,
     },
-    MasterKey,
 }
 
 #[derive(Subcommand, Debug)]
 enum UserAction {
-    /// Add a new user to configuration file, the file will be automatically created if not exist.
-    /// If the user exists, new password will be set to the existing user.
-    Add {
-        /// The admin user password
-        #[arg(short = 'P', long)]
-        password: String,
-    },
+    /// Add a new user to configuration file
+    Add,
+    /// Remove an existing user
+    Del,
+    /// Change the password for an existing user
+    Edit,
+    /// List all available users
+    Ls,
+}
+
+#[derive(Debug, Clone, Copy, Default, clap::ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct AdminResponse {
+    command: String,
+    outcome: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    users: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    generated_password: Option<String>,
 }
 fn main() -> Result<()> {
     let args = Args::parse();
+
     match args.command {
-        Commands::User { action, user, file } => match action {
-            UserAction::Add { password } => User::set_user(&file, &user, &password)?,
-        },
         Commands::MasterKey => {
-            MasterKey::set_master_key()?;
+            MasterKey::set_master_key(
+                args.password.as_deref(),
+                args.generate,
+                args.length,
+                args.format,
+            )?;
+        }
+        Commands::User { action } => {
+            let file = args
+                .file
+                .as_ref()
+                .ok_or_else(|| anyhow!("Missing required argument: -f, --file <FILE>"))?;
+
+            match action {
+                UserAction::Add => {
+                    let user = args
+                        .user
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
+                    let password = User::get_or_generate_password(
+                        args.password.as_deref(),
+                        args.generate,
+                        args.length,
+                    )?;
+                    User::set_user(file, user, &password, args.format)?;
+                }
+                UserAction::Del => {
+                    let user = args
+                        .user
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
+                    User::remove_user(file, user, args.format)?;
+                }
+                UserAction::Edit => {
+                    let user = args
+                        .user
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
+                    let password = User::get_or_generate_password(
+                        args.password.as_deref(),
+                        args.generate,
+                        args.length,
+                    )?;
+                    User::edit_user(file, user, &password, args.format)?;
+                }
+                UserAction::Ls => {
+                    User::list_users(file, args.format)?;
+                }
+            }
         }
     }
+
     Ok(())
 }
 
 struct User;
 impl User {
-    pub fn set_user(file: &str, user: &str, password: &str) -> Result<()> {
+    pub fn set_user(file: &str, user: &str, password: &str, format: OutputFormat) -> Result<()> {
         let path = Path::new(file);
         let sutil = SecurityUtil::new();
         let mut conf: UserConf;
@@ -103,22 +191,233 @@ impl User {
         let conf_str = serde_ini::to_string(&conf)?;
         fs::write(file, &conf_str)?;
 
+        Self::print_response(
+            format,
+            AdminResponse {
+                command: "user add".to_string(),
+                outcome: "success".to_string(),
+                users: Some(vec![user.to_string()]),
+                generated_password: None,
+            },
+        );
+
         Ok(())
+    }
+
+    pub fn remove_user(file: &str, user: &str, format: OutputFormat) -> Result<()> {
+        let path = Path::new(file);
+
+        if !path.exists() {
+            return Err(anyhow!("User file '{}' does not exist", file));
+        }
+
+        let mut conf = configuration::load_user_configuration(file)?;
+
+        if let Some(user_conf) = conf.get_mut("admins") {
+            if user_conf.remove(user).is_none() {
+                return Err(anyhow!("User '{}' not found", user));
+            }
+        } else {
+            return Err(anyhow!(
+                "Unable to find admins section in user configuration"
+            ));
+        }
+
+        let conf_str = serde_ini::to_string(&conf)?;
+        fs::write(file, &conf_str)?;
+
+        Self::print_response(
+            format,
+            AdminResponse {
+                command: "user del".to_string(),
+                outcome: "success".to_string(),
+                users: Some(vec![user.to_string()]),
+                generated_password: None,
+            },
+        );
+
+        Ok(())
+    }
+
+    pub fn edit_user(file: &str, user: &str, password: &str, format: OutputFormat) -> Result<()> {
+        let path = Path::new(file);
+        let sutil = SecurityUtil::new();
+
+        if !path.exists() {
+            return Err(anyhow!("User file '{}' does not exist", file));
+        }
+
+        let master_key = sutil.load_master_key().map_err(|e| {
+            anyhow!(
+                "Unable to load the master key, needed for editing user: {:?}",
+                e
+            )
+        })?;
+
+        let password_str = sutil.encrypt_to_base64_string(password.as_bytes(), &master_key[..])?;
+
+        let mut conf = configuration::load_user_configuration(file)?;
+
+        if let Some(user_conf) = conf.get_mut("admins") {
+            if user_conf.get(user).is_none() {
+                return Err(anyhow!("User '{}' not found", user));
+            }
+            user_conf.insert(user.to_string(), password_str);
+        } else {
+            return Err(anyhow!(
+                "Unable to find admins section in user configuration"
+            ));
+        }
+
+        let conf_str = serde_ini::to_string(&conf)?;
+        fs::write(file, &conf_str)?;
+
+        Self::print_response(
+            format,
+            AdminResponse {
+                command: "user edit".to_string(),
+                outcome: "success".to_string(),
+                users: Some(vec![user.to_string()]),
+                generated_password: None,
+            },
+        );
+
+        Ok(())
+    }
+
+    pub fn list_users(file: &str, format: OutputFormat) -> Result<()> {
+        let path = Path::new(file);
+
+        if !path.exists() {
+            Self::print_response(
+                format,
+                AdminResponse {
+                    command: "user ls".to_string(),
+                    outcome: "success".to_string(),
+                    users: Some(vec![]),
+                    generated_password: None,
+                },
+            );
+            return Ok(());
+        }
+
+        let conf = configuration::load_user_configuration(file)?;
+        let mut users: Vec<String> = conf
+            .get("admins")
+            .map(|user_conf| user_conf.keys().cloned().collect())
+            .unwrap_or_default();
+        users.sort_unstable();
+
+        Self::print_response(
+            format,
+            AdminResponse {
+                command: "user ls".to_string(),
+                outcome: "success".to_string(),
+                users: Some(users),
+                generated_password: None,
+            },
+        );
+
+        Ok(())
+    }
+
+    fn get_or_generate_password(
+        password: Option<&str>,
+        generate: bool,
+        length: usize,
+    ) -> Result<String> {
+        if let Some(pwd) = password {
+            return Ok(pwd.to_string());
+        }
+
+        if generate {
+            let sutil = SecurityUtil::new();
+            let generated = sutil.generate_password(length)?;
+            println!("Generated password: {}", generated);
+            return Ok(generated);
+        }
+
+        let pwd = prompt_password("Password: ")?;
+        let verify = prompt_password("Verify password: ")?;
+
+        if pwd != verify {
+            return Err(anyhow!("Passwords do not match"));
+        }
+
+        Ok(pwd)
+    }
+
+    fn print_response(format: OutputFormat, response: AdminResponse) {
+        match format {
+            OutputFormat::Json => {
+                if let Ok(json) = serde_json::to_string_pretty(&response) {
+                    println!("{}", json);
+                }
+            }
+            OutputFormat::Text => {
+                println!("Command: {}", response.command);
+                println!("Outcome: {}", response.outcome);
+                if let Some(users) = &response.users
+                    && !users.is_empty()
+                {
+                    println!("Users:");
+                    for user in users {
+                        println!("  - {}", user);
+                    }
+                }
+                if let Some(pwd) = &response.generated_password {
+                    println!("Generated password: {}", pwd);
+                }
+            }
+        }
     }
 }
 
 struct MasterKey;
 
 impl MasterKey {
-    pub fn set_master_key() -> Result<()> {
+    pub fn set_master_key(
+        password: Option<&str>,
+        generate: bool,
+        length: usize,
+        format: OutputFormat,
+    ) -> Result<()> {
         let sutil = SecurityUtil::new();
-        let master_key = prompt_password("Please enter your master key").unwrap();
-        let m = prompt_password("Please enter your master key again").unwrap();
+        let final_password: String;
 
-        if master_key != m {
-            return Err(anyhow!("Passwords do not match"));
-        }
+        let master_key = if let Some(pwd) = password {
+            final_password = pwd.to_string();
+            &final_password
+        } else if generate {
+            final_password = sutil.generate_password(length)?;
+            println!("Generated master key: {}", final_password);
+            &final_password
+        } else {
+            final_password = prompt_password("Please enter your master key: ")?;
+            let m = prompt_password("Please enter your master key again: ")?;
 
-        sutil.write_master_key(&master_key)
+            if final_password != m {
+                return Err(anyhow!("Passwords do not match"));
+            }
+            &final_password
+        };
+
+        sutil.write_master_key(master_key)?;
+
+        User::print_response(
+            format,
+            AdminResponse {
+                command: "master-key".to_string(),
+                outcome: "success".to_string(),
+                users: None,
+                generated_password: if generate {
+                    Some(final_password.clone())
+                } else {
+                    None
+                },
+            },
+        );
+
+        Ok(())
     }
 }
