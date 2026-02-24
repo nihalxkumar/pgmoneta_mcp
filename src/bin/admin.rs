@@ -138,7 +138,9 @@ fn main() -> Result<()> {
                     })?;
                     User::edit_user(file, user, password)?;
                 }
-                UserAction::Ls => return Err(anyhow!("User ls is not implemented yet")),
+                UserAction::Ls => {
+                    User::list_users(file)?;
+                }
             }
         }
     }
@@ -241,6 +243,26 @@ impl User {
 
         let conf_str = serde_ini::to_string(&conf)?;
         fs::write(file, &conf_str)?;
+
+        Ok(())
+    }
+
+    pub fn list_users(file: &str) -> Result<()> {
+        let path = Path::new(file);
+
+        if !path.exists() {
+            return Ok(());
+        }
+
+        let conf = configuration::load_user_configuration(file)?;
+        let users: Vec<String> = conf
+            .get("admins")
+            .map(|user_conf| user_conf.keys().cloned().collect())
+            .unwrap_or_default();
+
+        for user in users {
+            println!("{}", user);
+        }
 
         Ok(())
     }
