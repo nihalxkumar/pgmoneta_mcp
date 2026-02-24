@@ -101,7 +101,12 @@ fn main() -> Result<()> {
 
     match args.command {
         Commands::MasterKey => {
-            MasterKey::set_master_key()?;
+            MasterKey::set_master_key(
+                args.password.as_deref(),
+                args.generate,
+                args.length,
+                args.format,
+            )?;
         }
         Commands::User { action } => {
             let file = args
@@ -371,15 +376,48 @@ impl User {
 struct MasterKey;
 
 impl MasterKey {
-    pub fn set_master_key() -> Result<()> {
+    pub fn set_master_key(
+        password: Option<&str>,
+        generate: bool,
+        length: usize,
+        format: OutputFormat,
+    ) -> Result<()> {
         let sutil = SecurityUtil::new();
-        let master_key = prompt_password("Please enter your master key").unwrap();
-        let m = prompt_password("Please enter your master key again").unwrap();
+        let final_password: String;
 
-        if master_key != m {
-            return Err(anyhow!("Passwords do not match"));
-        }
+        let master_key = if let Some(pwd) = password {
+            final_password = pwd.to_string();
+            &final_password
+        } else if generate {
+            final_password = sutil.generate_password(length)?;
+            println!("Generated master key: {}", final_password);
+            &final_password
+        } else {
+            final_password = prompt_password("Please enter your master key: ")?;
+            let m = prompt_password("Please enter your master key again: ")?;
 
-        sutil.write_master_key(&master_key)
+            if final_password != m {
+                return Err(anyhow!("Passwords do not match"));
+            }
+            &final_password
+        };
+
+        sutil.write_master_key(master_key)?;
+
+        User::print_response(
+            format,
+            AdminResponse {
+                command: "master-key".to_string(),
+                outcome: "success".to_string(),
+                users: None,
+                generated_password: if generate {
+                    Some(final_password.clone())
+                } else {
+                    None
+                },
+            },
+        );
+
+        Ok(())
     }
 }
