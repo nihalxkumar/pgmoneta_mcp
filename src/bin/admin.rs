@@ -14,8 +14,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
-use configuration::UserConf;
-use pgmoneta_mcp::configuration;
+use pgmoneta_mcp::configuration::{self, UserConf};
 use pgmoneta_mcp::security::SecurityUtil;
 use rpassword::prompt_password;
 use serde::{Deserialize, Serialize};
@@ -116,30 +115,34 @@ fn main() -> Result<()> {
                         .user
                         .as_ref()
                         .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
-                    let password = args.password.as_deref().ok_or_else(|| {
-                        anyhow!("Missing required argument: -P, --password <PASSWORD>")
-                    })?;
-                    User::set_user(file, user, password)?;
+                    let password = User::get_or_generate_password(
+                        args.password.as_deref(),
+                        args.generate,
+                        args.length,
+                    )?;
+                    User::set_user(file, user, &password, args.format)?;
                 }
                 UserAction::Del => {
                     let user = args
                         .user
                         .as_ref()
                         .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
-                    User::remove_user(file, user)?;
+                    User::remove_user(file, user, args.format)?;
                 }
                 UserAction::Edit => {
                     let user = args
                         .user
                         .as_ref()
                         .ok_or_else(|| anyhow!("Missing required argument: -U, --user <USER>"))?;
-                    let password = args.password.as_deref().ok_or_else(|| {
-                        anyhow!("Missing required argument: -P, --password <PASSWORD>")
-                    })?;
-                    User::edit_user(file, user, password)?;
+                    let password = User::get_or_generate_password(
+                        args.password.as_deref(),
+                        args.generate,
+                        args.length,
+                    )?;
+                    User::edit_user(file, user, &password, args.format)?;
                 }
                 UserAction::Ls => {
-                    User::list_users(file)?;
+                    User::list_users(file, args.format)?;
                 }
             }
         }
@@ -150,7 +153,7 @@ fn main() -> Result<()> {
 
 struct User;
 impl User {
-    pub fn set_user(file: &str, user: &str, password: &str) -> Result<()> {
+    pub fn set_user(file: &str, user: &str, password: &str, format: OutputFormat) -> Result<()> {
         let path = Path::new(file);
         let sutil = SecurityUtil::new();
         let mut conf: UserConf;
@@ -183,10 +186,20 @@ impl User {
         let conf_str = serde_ini::to_string(&conf)?;
         fs::write(file, &conf_str)?;
 
+        Self::print_response(
+            format,
+            AdminResponse {
+                command: "user add".to_string(),
+                outcome: "success".to_string(),
+                users: Some(vec![user.to_string()]),
+                generated_password: None,
+            },
+        );
+
         Ok(())
     }
 
-    pub fn remove_user(file: &str, user: &str) -> Result<()> {
+    pub fn remove_user(file: &str, user: &str, format: OutputFormat) -> Result<()> {
         let path = Path::new(file);
 
         if !path.exists() {
@@ -208,10 +221,20 @@ impl User {
         let conf_str = serde_ini::to_string(&conf)?;
         fs::write(file, &conf_str)?;
 
+        Self::print_response(
+            format,
+            AdminResponse {
+                command: "user del".to_string(),
+                outcome: "success".to_string(),
+                users: Some(vec![user.to_string()]),
+                generated_password: None,
+            },
+        );
+
         Ok(())
     }
 
-    pub fn edit_user(file: &str, user: &str, password: &str) -> Result<()> {
+    pub fn edit_user(file: &str, user: &str, password: &str, format: OutputFormat) -> Result<()> {
         let path = Path::new(file);
         let sutil = SecurityUtil::new();
 
@@ -244,27 +267,104 @@ impl User {
         let conf_str = serde_ini::to_string(&conf)?;
         fs::write(file, &conf_str)?;
 
+        Self::print_response(
+            format,
+            AdminResponse {
+                command: "user edit".to_string(),
+                outcome: "success".to_string(),
+                users: Some(vec![user.to_string()]),
+                generated_password: None,
+            },
+        );
+
         Ok(())
     }
 
-    pub fn list_users(file: &str) -> Result<()> {
+    pub fn list_users(file: &str, format: OutputFormat) -> Result<()> {
         let path = Path::new(file);
 
         if !path.exists() {
+            Self::print_response(
+                format,
+                AdminResponse {
+                    command: "user ls".to_string(),
+                    outcome: "success".to_string(),
+                    users: Some(vec![]),
+                    generated_password: None,
+                },
+            );
             return Ok(());
         }
 
         let conf = configuration::load_user_configuration(file)?;
-        let users: Vec<String> = conf
+        let mut users: Vec<String> = conf
             .get("admins")
             .map(|user_conf| user_conf.keys().cloned().collect())
             .unwrap_or_default();
+        users.sort_unstable();
 
-        for user in users {
-            println!("{}", user);
-        }
+        Self::print_response(
+            format,
+            AdminResponse {
+                command: "user ls".to_string(),
+                outcome: "success".to_string(),
+                users: Some(users),
+                generated_password: None,
+            },
+        );
 
         Ok(())
+    }
+
+    fn get_or_generate_password(
+        password: Option<&str>,
+        generate: bool,
+        length: usize,
+    ) -> Result<String> {
+        if let Some(pwd) = password {
+            return Ok(pwd.to_string());
+        }
+
+        if generate {
+            let sutil = SecurityUtil::new();
+            let generated = sutil.generate_password(length)?;
+            println!("Generated password: {}", generated);
+            return Ok(generated);
+        }
+
+        let pwd = prompt_password("Password: ")?;
+        let verify = prompt_password("Verify password: ")?;
+
+        if pwd != verify {
+            return Err(anyhow!("Passwords do not match"));
+        }
+
+        Ok(pwd)
+    }
+
+    fn print_response(format: OutputFormat, response: AdminResponse) {
+        match format {
+            OutputFormat::Json => {
+                if let Ok(json) = serde_json::to_string_pretty(&response) {
+                    println!("{}", json);
+                }
+            }
+            OutputFormat::Text => {
+                println!("Command: {}", response.command);
+                println!("Outcome: {}", response.outcome);
+                if let Some(users) = &response.users {
+                    if !users.is_empty() {
+                        println!("Users:");
+                        for user in users {
+                            println!("  - {}", user);
+                        }
+                    }
+                }
+                if let Some(pwd) = &response.generated_password {
+                    println!("Generated password: {}", pwd);
+                }
+            }
+        }
     }
 }
 
